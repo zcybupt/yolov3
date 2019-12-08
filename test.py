@@ -17,11 +17,10 @@ def test(cfg,
          conf_thres=0.001,
          nms_thres=0.5,
          save_json=False,
-         model=None,
-         dataloader=None):
+         model=None):
     # Initialize/load model and set device
     if model is None:
-        device = torch_utils.select_device(opt.device, batch_size=batch_size)
+        device = torch_utils.select_device(opt.device)
         verbose = True
 
         # Initialize model
@@ -47,14 +46,12 @@ def test(cfg,
     names = load_classes(data['names'])  # class names
 
     # Dataloader
-    if dataloader is None:
-        dataset = LoadImagesAndLabels(test_path, img_size, batch_size, rect=True)
-        batch_size = min(batch_size, len(dataset))
-        dataloader = DataLoader(dataset,
-                                batch_size=batch_size,
-                                num_workers=min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]),
-                                pin_memory=True,
-                                collate_fn=dataset.collate_fn)
+    dataset = LoadImagesAndLabels(test_path, img_size, batch_size)
+    dataloader = DataLoader(dataset,
+                            batch_size=batch_size,
+                            num_workers=min([os.cpu_count(), batch_size, 16]),
+                            pin_memory=True,
+                            collate_fn=dataset.collate_fn)
 
     seen = 0
     model.eval()
@@ -103,7 +100,7 @@ def test(cfg,
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split('_')[-1])
                 box = pred[:, :4].clone()  # xyxy
-                scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
+                scale_coords(imgs[si].shape[1:], box, shapes[si])  # to original shape
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
                 for di, d in enumerate(pred):
@@ -169,26 +166,26 @@ def test(cfg,
 
     # Save JSON
     if save_json and map and len(jdict):
-        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
-        with open('results.json', 'w') as file:
-            json.dump(jdict, file)
-
         try:
+            imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataset.img_files]
+            with open('results.json', 'w') as file:
+                json.dump(jdict, file)
+
             from pycocotools.coco import COCO
             from pycocotools.cocoeval import COCOeval
+
+            # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
+            cocoGt = COCO('../coco/annotations/instances_val2014.json')  # initialize COCO ground truth api
+            cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
+
+            cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
+            cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
+            cocoEval.evaluate()
+            cocoEval.accumulate()
+            cocoEval.summarize()
+            map = cocoEval.stats[1]  # update mAP to pycocotools mAP
         except:
-            print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
-
-        # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-        cocoGt = COCO('../coco/annotations/instances_val2014.json')  # initialize COCO ground truth api
-        cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
-
-        cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
-        cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
-        cocoEval.evaluate()
-        cocoEval.accumulate()
-        cocoEval.summarize()
-        map = cocoEval.stats[1]  # update mAP to pycocotools mAP
+            print('WARNING: missing dependency pycocotools from requirements.txt. Can not compute official COCO mAP.')
 
     # Return results
     maps = np.zeros(nc) + map
@@ -221,4 +218,4 @@ if __name__ == '__main__':
              opt.iou_thres,
              opt.conf_thres,
              opt.nms_thres,
-             opt.save_json or (opt.data == 'data/coco.data'))
+             opt.save_json)

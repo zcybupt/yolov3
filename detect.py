@@ -43,7 +43,7 @@ def detect(save_txt=False, save_img=False):
     # Export mode
     if ONNX_EXPORT:
         img = torch.zeros((1, 3) + img_size)  # (1, 3, 320, 192)
-        torch.onnx.export(model, img, 'weights/export.onnx', verbose=False, opset_version=10)
+        torch.onnx.export(model, img, 'weights/export.onnx', verbose=False, opset_version=11)
 
         # Validate exported model
         import onnx
@@ -73,6 +73,7 @@ def detect(save_txt=False, save_img=False):
 
     # Run inference
     t0 = time.time()
+    count = 0
     for path, img, im0s, vid_cap in dataset:
         t = time.time()
 
@@ -118,7 +119,7 @@ def detect(save_txt=False, save_img=False):
 
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (classes[int(cls)], conf)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
+                        # plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
 
             print('%sDone. (%.3fs)' % (s, time.time() - t))
 
@@ -129,7 +130,19 @@ def detect(save_txt=False, save_img=False):
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'images':
-                    cv2.imwrite(save_path, im0)
+                    if pred[0] is not None:
+                        watermaks = np.asarray(pred[0])
+                        for watermak in watermaks:
+                            results = [int(i) for i in watermak[:4]]
+                            print(results, watermak[4:].tolist())
+                            # save_path = 'output/' + str(count).zfill(5) + '.jpg'
+                            # count += 1
+                            # cv2.imwrite(
+                            #     save_path,
+                            #     im0[int(watermak[1]):int(watermak[3]),
+                            #     int(watermak[0]):int(watermak[2])]
+                            # )
+                            # cv2.imwrite(save_path, im0)
                 else:
                     if vid_path != save_path:  # new video
                         vid_path = save_path
@@ -152,10 +165,11 @@ def detect(save_txt=False, save_img=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='cfg file path')
-    parser.add_argument('--data', type=str, default='data/coco.data', help='coco.data file path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-spp.weights', help='path to weights file')
-    parser.add_argument('--source', type=str, default='data/samples', help='source')  # input file/folder, 0 for webcam
+    parser.add_argument('--cfg', type=str, default='cfg/yolov3-1cls.cfg', help='cfg file path')
+    parser.add_argument('--data', type=str, default='cfg/watermark.data', help='coco.data file path')
+    parser.add_argument('--weights', type=str, default='weights/yolov3-voc.weights', help='path to weights file')
+    parser.add_argument('--source', type=str, default='/home/zcy/Workspace/ZYB/darknet/water_pic/images',
+                        help='source')  # input file/folder, 0 for webcam
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
@@ -165,7 +179,6 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     opt = parser.parse_args()
-    print(opt)
 
     with torch.no_grad():
         detect()
