@@ -1,6 +1,3 @@
-import argparse
-from sys import platform
-
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
 from utils.utils import *
@@ -61,7 +58,7 @@ class Detector:
         t0 = time.time()
         img0 = cv2.imread(filepath)
         if img0 is None:
-            return
+            return None
 
         # Padded resize
         img = letterbox(img0, new_shape=self.img_size)[0]
@@ -104,23 +101,9 @@ class Detector:
             # Save results (image with detections)
             if pred[0] is not None:
                 watermaks = np.asarray(pred[0])
+                results = []
                 for watermak in watermaks:
-                    results = [int(i) for i in watermak[:4]]
-                    print(results, watermak[4:].tolist())
-                    # save_path = 'output/' + str(count).zfill(5) + '.jpg'
-                    # count += 1
-                    # cv2.imwrite(
-                    #     save_path,
-                    #     im0[int(watermak[1]):int(watermak[3]),
-                    #     int(watermak[0]):int(watermak[2])]
-                    # )
-                    # cv2.imwrite(save_path, im0)
-        print('Done. (%.3fs)' % (time.time() - t0))
-
-
-if __name__ == '__main__':
-    detector = Detector()
-    with torch.no_grad():
-        while True:
-            path = input('Image path: ')
-            detector.detect(path)
+                    result = [int(i) for i in watermak[:4]]
+                    result.append(watermak[4])
+                    results.append(result)
+                return results

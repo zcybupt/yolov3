@@ -5,39 +5,47 @@
 
 import requests
 from flask import Flask, request, jsonify
-from detect import detect
+from detect import *
 
 app = Flask(__name__)
+formats = ['JPEG', 'PNG', 'BMP']
 
 
 @app.route('/detect', methods=['POST'])
-def detect_img():
+def start_service():
+    detector = Detector()
+
     jo = request.json
     img_url = jo.get('img_url')
+    print('detecting image: ' + img_url)
     data = {
         'result': 'fail'
     }
 
-    with open('tmp.jpg', 'wb') as f:
+    with open('tmp_img', 'wb') as f:
         res = requests.get(img_url)
-        if res.status_code == 404:
+        if res.status_code != 404:
             f.write(res.content)
+            try:
+                img_format = Image.open('tmp_img').format
+                if img_format not in formats:
+                    return jsonify(data)
+            except:
+                return jsonify(data)
         else:
             return data
 
-    results = detect(net, meta, 'tmp.jpg'.encode('utf-8'))
-    if len(results) == 0:
+    with torch.no_grad():
+        results = detector.detect('tmp_img')
+    if results is None or len(results) == 0:
         return jsonify(data)
 
     data['result'] = 'success'
     data['box'] = []
     for result in results:
         data['box'].append({
-            'confidence': result[1],
-            'coordinates': [round(result[2][0] - result[2][2] / 2),
-                            round(result[2][1] - result[2][3] / 2),
-                            round(result[2][0] + result[2][2] / 2),
-                            round(result[2][1] + result[2][3] / 2)]
+            'confidence': float(result[-1]),
+            'coordinates': result[:4]
         })
         print(result)
 
