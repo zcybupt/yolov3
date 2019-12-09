@@ -9,12 +9,11 @@ from detect import *
 
 app = Flask(__name__)
 formats = ['JPEG', 'PNG', 'BMP']
+detector = Detector()
 
 
 @app.route('/detect', methods=['POST'])
 def start_service():
-    detector = Detector()
-
     jo = request.json
     img_url = jo.get('img_url')
     print('detecting image: ' + img_url)
