@@ -12,7 +12,7 @@ Body
 
 ```javascript
 {
-	"img_url": "url_to_image"
+    "img_url": "url_to_image"
 }
 ```
 
