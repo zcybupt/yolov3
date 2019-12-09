@@ -6,7 +6,7 @@ import cv2
 
 class Detector:
     def __init__(self):
-        cfg = 'cfg/yolov3-1cls.cfg'
+        cfg = 'cfg/yolov3-1cls.cfg'  # 1cls for single class
         weights = 'weights/yolov3-voc.weights'
         self.data = 'cfg/watermark.data'
         self.img_size = 416
