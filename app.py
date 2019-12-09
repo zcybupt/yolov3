@@ -23,16 +23,16 @@ def start_service():
 
     with open('tmp_img', 'wb') as f:
         res = requests.get(img_url)
-        if res.status_code != 404:
-            f.write(res.content)
-            try:
-                img_format = Image.open('tmp_img').format
-                if img_format not in formats:
-                    raise Exception
-            except:
-                return jsonify(data)
-        else:
-            return data
+        if res.status_code == 404:
+            return jsonify(data)
+
+        f.write(res.content)
+        try:
+            img_format = Image.open('tmp_img').format
+            if img_format not in formats:
+                raise Exception
+        except:
+            return jsonify(data)
 
     with torch.no_grad():
         results = detector.detect('tmp_img')
