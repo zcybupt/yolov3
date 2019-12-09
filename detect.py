@@ -8,18 +8,23 @@ import cv2
 
 
 class Detector:
-    def __init__(self, opt):
-        self.img_size = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (h, w)
-        out, source, weights, self.half, view_img = opt.output, opt.source, opt.weights, opt.half, opt.view_img
+    img_size: int
+
+    def __init__(self):
+        cfg = 'cfg/yolov3-1cls.cfg'
+        weights = 'weights/yolov3-voc.weights'
+        self.data = 'cfg/watermark.data'
+        self.img_size = 416
+        self.conf_thres = 0.3
+        self.nms_thres = 0.5
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.half = True if torch.cuda.is_available() else False
 
         # Initialize
-        self.device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
-        if os.path.exists(out):
-            shutil.rmtree(out)  # delete output folder
-        os.makedirs(out)  # make new output folder
+        self.device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else self.device)
 
         # Initialize model
-        self.model = Darknet(opt.cfg, self.img_size)
+        self.model = Darknet(cfg, self.img_size)
 
         # Load weights
         attempt_download(weights)
@@ -29,17 +34,6 @@ class Detector:
             _ = load_darknet_weights(self.model, weights)
 
     def detect(self, filepath):
-        # Second-stage classifier
-        classify = False
-        if classify:
-            modelc = torch_utils.load_classifier(name='resnet101', n=2)  # initialize
-            modelc.load_state_dict(
-                torch.load('weights/resnet101.pt', map_location=self.device)['model'])  # load weights
-            modelc.to(self.device).eval()
-
-        # Fuse Conv2d + BatchNorm2d layers
-        # model.fuse()
-
         # Eval mode
         self.model.to(self.device).eval()
 
@@ -48,7 +42,7 @@ class Detector:
             img = torch.zeros((1, 3) + self.img_size)  # (1, 3, 320, 192)
             torch.onnx.export(self.model, img, 'weights/export.onnx', verbose=False, opset_version=11)
 
-            # Validate exported model
+            # Validate exported models
             import onnx
             model = onnx.load('weights/export.onnx')  # Load the ONNX model
             onnx.checker.check_model(model)  # Check that the IR is well formed
@@ -61,8 +55,7 @@ class Detector:
             self.model.half()
 
         # Get classes and colors
-        classes = load_classes(parse_data_cfg(opt.data)['names'])
-        colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(classes))]
+        classes = load_classes(parse_data_cfg(self.data)['names'])
 
         # Run inference
         t0 = time.time()
@@ -86,15 +79,11 @@ class Detector:
             img = img.unsqueeze(0)
         pred = self.model(img)[0]
 
-        if opt.half:
+        if self.half:
             pred = pred.float()
 
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.nms_thres)
-
-        # Apply
-        if classify:
-            pred = apply_classifier(pred, modelc, img, img0)
+        pred = non_max_suppression(pred, self.conf_thres, self.nms_thres)
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
@@ -113,7 +102,6 @@ class Detector:
             print('%sDone. (%.3fs)' % (s, time.time() - t))
 
             # Save results (image with detections)
-
             if pred[0] is not None:
                 watermaks = np.asarray(pred[0])
                 for watermak in watermaks:
@@ -131,24 +119,7 @@ class Detector:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3-1cls.cfg', help='cfg file path')
-    parser.add_argument('--data', type=str, default='cfg/watermark.data', help='coco.data file path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-voc.weights', help='path to weights file')
-    parser.add_argument('--source', type=str, default='/Users/zcy/Downloads/20190928',
-                        help='source')  # input file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-    parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
-    parser.add_argument('--nms-thres', type=float, default=0.5, help='iou threshold for non-maximum suppression')
-    parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
-    parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    opt = parser.parse_args()
-
-    detector = Detector(opt)
-
+    detector = Detector()
     with torch.no_grad():
         while True:
             path = input('Image path: ')
