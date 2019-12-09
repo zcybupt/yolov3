@@ -53,7 +53,6 @@ class Detector:
         classes = load_classes(parse_data_cfg(self.data)['names'])
 
         # Run inference
-        t0 = time.time()
         img0 = cv2.imread(filepath)
         if img0 is None:
             return None
