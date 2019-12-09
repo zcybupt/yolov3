@@ -5,8 +5,6 @@ import cv2
 
 
 class Detector:
-    img_size: int
-
     def __init__(self):
         cfg = 'cfg/yolov3-1cls.cfg'
         weights = 'weights/yolov3-voc.weights'
