@@ -135,14 +135,14 @@ def detect(save_txt=False, save_img=False):
                         for watermak in watermaks:
                             results = [int(i) for i in watermak[:4]]
                             print(results, watermak[4:].tolist())
-                            # save_path = 'output/' + str(count).zfill(5) + '.jpg'
-                            # count += 1
-                            # cv2.imwrite(
-                            #     save_path,
-                            #     im0[int(watermak[1]):int(watermak[3]),
-                            #     int(watermak[0]):int(watermak[2])]
-                            # )
-                            # cv2.imwrite(save_path, im0)
+                            save_path = 'output/' + str(count).zfill(5) + '.jpg'
+                            count += 1
+                            cv2.imwrite(
+                                save_path,
+                                im0[int(watermak[1]):int(watermak[3]),
+                                int(watermak[0]):int(watermak[2])]
+                            )
+                            cv2.imwrite(save_path, im0)
                 else:
                     if vid_path != save_path:  # new video
                         vid_path = save_path
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-1cls.cfg', help='cfg file path')
     parser.add_argument('--data', type=str, default='cfg/watermark.data', help='coco.data file path')
     parser.add_argument('--weights', type=str, default='weights/yolov3-voc.weights', help='path to weights file')
-    parser.add_argument('--source', type=str, default='/home/zcy/Workspace/ZYB/darknet/water_pic/images',
+    parser.add_argument('--source', type=str, default='/Users/zcy/Downloads/20190928',
                         help='source')  # input file/folder, 0 for webcam
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
