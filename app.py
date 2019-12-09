@@ -29,7 +29,7 @@ def start_service():
             try:
                 img_format = Image.open('tmp_img').format
                 if img_format not in formats:
-                    return jsonify(data)
+                    raise Exception
             except:
                 return jsonify(data)
         else:
